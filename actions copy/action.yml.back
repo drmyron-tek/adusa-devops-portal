@@ -1,0 +1,86 @@
+name: Deploy Bicep
+description: Deploy
+
+
+inputs:
+    subscriptionId:
+      description: 'Subscription ID'
+      required: true
+    resourceGroupName:
+      description: 'Resource group name'
+      required: true
+    location:
+      description: 'Location for resources'
+      required: true
+    newOrExisting:
+      description: 'Create new storage account or use existing'
+      required: true
+      default: 'new'
+    deployStorageAccountContainers:
+      description: 'Whether to deploy storage account containers'
+      required: true
+      default: false
+    storageAccountNames:
+      description: 'Storage account names'
+      required: true
+    storageAccountContainerNames:
+      description: 'Storage account container names'
+      required: false
+    storageSkuType:
+      description: 'SKU type for storage account'
+      required: false
+      default: 'Standard_LRS'
+    storageAccountKind:
+      description: 'Kind of storage account'
+      required: false
+      default: 'StorageV2'
+    enableDataLakeStorage:
+      description: 'Enable Data Lake Storage for account'
+      required: false
+      default: false
+      required: true
+      default: 'new'
+    deployStorageAccountContainers:
+      description: 'Whether to deploy storage account containers'
+      required: true
+      default: false
+    storageAccountNames:
+      description: 'Storage account names'
+      required: true
+    storageAccountContainerNames:
+      description: 'Storage account container names'
+      required: false
+    storageSkuType:
+      description: 'SKU type for storage account'
+      required: false
+      default: 'Standard_LRS'
+    storageAccountKind:
+      description: 'Kind of storage account'
+      required: false
+      default: 'StorageV2'
+    enableDataLakeStorage:
+      description: 'Enable Data Lake Storage for account'
+      required: false
+      default: false
+      # Add inputs for all parameters...
+
+    runs:
+      using: "composite"
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v3
+        - name: Deploy Bicep
+          uses: azure/arm-deploy@v1
+          with:
+            subscriptionId: ${{ inputs.subscriptionId }}
+            resourceGroupName: ${{ inputs.resourceGroupName }}
+            template: main.bicep
+            parameters: >
+              location=${{ inputs.location }}
+              newOrExisting=${{ inputs.newOrExisting }}
+              deployStorageAccountContainers=${{ inputs.deployStorageAccountContainers }}
+              storageAccountNames=${{ inputs.storageAccountNames }}
+              storageAccountContainerNames=${{ inputs.storageAccountContainerNames }}
+              storageSkuType=${{ inputs.storageSkuType }}
+              storageAccountKind=${{ inputs.storageAccountKind }}
+              # Pass all inputs as parameters
