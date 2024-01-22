@@ -1,0 +1,141 @@
+name: Test Storage Service
+
+on:
+  workflow_dispatch:
+    inputs:
+        dispatchId:
+            description: "A unique ID provided when dispatching this workflow"
+            required: false
+            type: string
+        templateRoute:
+            description: "Template folder path"
+            required: true
+            default: "./services/storage-accounts/*parameters.json"
+            type: string
+        subscriptionId:
+            description: "Subscription ID"
+            required: true
+            type: string
+        resourceGroupName:
+            description: "Resource group name"
+            required: false
+            type: string
+        parameters:
+            description: "Parameters object as a JSON string"
+            required: true
+            type: string
+        branchName:
+            description: 'Branch name to use as the base for the deployment'
+            required: true
+            type: string
+            default: 'main'
+        # description:
+        #     description: 'What type of service are you deploying?'
+        #     required: true
+        #     type: string
+        memberName:
+            description: 'Your email'
+            required: true
+            type: string
+        serviceType:
+            description: 'Select the service type'
+            required: true
+            type: choice
+            options:
+            - storage_only
+            - storage-private-EP
+            - storage-EP-KV
+        storageContainerType:
+            description: 'Storage container type'
+            required: true
+            type: choice
+            options:
+            - file
+            - queue
+            - table
+            - blob
+
+jobs:
+  prepare-deployment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout adusa-devops-deploys repo
+        uses: actions/checkout@v3
+        with:
+                repository: drmyron-tek/adusa-devops-deploys.git
+                token: ${{ secrets.DevOps_portal_PAT }}
+                ref: ${{ github.event.inputs.branchName }}
+                fetch-depth: 0
+
+      - name: Generate new branch name
+        id: branch_name 
+        run: 
+            echo "newBranchName=deploy-${{ github.event.inputs.serviceType }}-${{ github.run_number }}" >> $GITHUB_ENV
+            cd ./services/storage-accounts/
+            git config --global user.email "${{ github.event.inputs.memberName }}"
+            git config --global user.name "${{ github.actor }}"
+            git config --global --add core.verbose true
+            git checkout -b "${{ env.newBranchName }}"
+            git push origin "${{ env.newBranchName }}"
+
+  copy-files-and-deploy:
+            needs: prepare-deployment
+            runs-on: ubuntu-latest
+            steps:
+            - name: Copy Bicep files from external repository
+              run: |
+                    mkdir -p ./services/storage-accounts/
+                    curl -H "Authorization: token ${{ secrets.DevOps_portal_PAT }}" \
+                        -L "https://github.com/RoyalAholdDelhaize/storm-bicep/blob/main/services/storage-accounts/*.bicep" \
+                        -o "services/storage-accounts/storage.bicep"
+                        
+                        cat services/storage-accounts/storage.bicep
+            
+            - name: Copy parameters.json from external repository
+              run: |
+                    
+                    curl -H "Authorization: token ${{ secrets.DevOps_portal_PAT }}" \
+                        -L "https://github.com/RoyalAholdDelhaize/storm-bicep/blob/main/services/storage-accounts/.test/parameters.json" \
+                        -o "services/storage-accounts/parameters.json"
+                     
+                     cat services/storage-accounts/parameters.json
+                     chmod 777 services/storage-accounts/*
+                     ls -la services/storage-accounts/
+            - name: Checkin files
+              run: |
+                        echo "newBranchName=deploy-${{ github.event.inputs.serviceType }}-${{ github.run_number }}" >> $GITHUB_ENV
+                        cd ./services/storage-accounts/
+                        ls -ltra
+                        git status
+                        echo "${{ env.newBranchName }}"
+                        git config --global user.email "${{ github.event.inputs.memberName }}"
+                        git config --global user.name "${{ github.actor }}"
+                        git config --global --add core.verbose true
+                        git add .
+                        git commit -m "Add files via upload"
+                        git push origin "${{ env.newBranchName }}"
+
+                        
+#   dispatch-id:
+#             if: inputs.dispatchId != ''
+#             runs-on: ubuntu-latest
+#             steps:
+#               - id: dispatch-id
+#                 name: ${{ inputs.dispatchId }}
+#                 run: echo "The dispatch ID is ${{ inputs.dispatchId }}"  
+
+#   deploy:
+#     runs-on: ubuntu-latest
+#     # environment: development
+#     steps:
+#             - uses: actions/checkout@v3
+#             - run: |
+#                 echo "Template route: ${{ inputs.templateRoute }}"
+#                 echo "Target Subscription ID: ${{ inputs.subscriptionId }}"
+#                 echo "Target resource group Name: ${{ inputs.resourceGroupName }}"
+#             - name: Raw parameters string
+#               run: |
+#                 echo "Parameters string: ${{ inputs.parameters }}"
+#             - name: Process deployment inputs
+#               run: cat ${{ inputs.templateRoute }}/parameters.json | jq '.parameters = ${{ inputs.parameters }}' | tee processed.parameters.json | jq -r '.parameters|to_entries|map("\(.key) = \(.value.value|tostring)")|.[]'
+#               id: process-deployment-inputs                
