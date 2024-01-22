@@ -1,0 +1,95 @@
+name: DevOps Portal Storage Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      subnetID:
+        description: 'Subnet ID'
+        required: true
+      dispatchId:
+        description: "A unique ID provided when dispatching this workflow"
+        required: false
+        type: string
+      subscriptionId:
+        description: "Subscription ID"
+        required: true
+        type: string
+      resourceGroupName:
+        description: "Resource group name"
+        required: false
+        type: string
+      parameters:
+        description: "Parameters object as a JSON string"
+        required: true
+        type: string
+      name:
+        type: choice
+        description: 'Type of storage container (blob, fileshare, queue, table)'
+        options: 
+        - Blob
+        - fileshare
+        - queue
+        - table
+        required: true
+      storageAccountContainerNames:
+        description: 'Storage account storage accout container names'
+        required: false      
+      storageAccountName:
+        description: 'Storage account name (Required if isNewStorage is false)'
+        required: false
+      
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID}}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION}}
+        allow-no-subscriptions: true
+
+    - name: Deploy a new Storage Account
+      if: ${{ github.event.inputs.isNewStorage == 'true' }}
+      run: |
+        # Add your script/command to create a new storage account here.
+        # Use github.event.inputs.storageType to determine the type of storage to create..
+
+    # - name: Configure Storage Account if Existing
+    #   if: ${{ github.event.inputs.isNewStorage == 'false' }}
+    #   run: |
+    #     # Add your script/command to configure an existing storage account here.
+    #     # Use github.event.inputs.storageAccountName and github.event.inputs.subscriptionId.
+
+    # - name: Configure Private Endpoint for Blob
+    #   if: ${{ github.event.inputs.privateEndpoint == 'true' && github.event.inputs.storageType == 'blob' }}
+    #   run: |
+    #     # Add your script/command to configure a private endpoint for blob storage here.
+
+    # - name: Configure Private Endpoint for File Share
+    #   if: ${{ github.event.inputs.privateEndpoint == 'true' && github.event.inputs.storageType == 'fileshare' }}
+    #   run: |
+    #     # Add your script/command to configure a private endpoint for file share here.
+
+    # # Add additional steps for other deployment stacks like VM, key vault, subnet, image as needed.
+
+    # - name: Notify Customer
+    #   run: |
+    #     # Add your script/command to send logs or notifications to the customer here.
+    # - name: Echo the inputs
+    #   run: |
+    #       echo "Name: ${{ github.event.inputs.name }}"
+    #       echo "Branch Name: ${{ github.event.inputs.subnetID }}"
+    #       echo "Storage Account Container Names: ${{ github.event.inputs.storageAccountContainerNames }}"
+    #       echo "Deployment Stack: ${{ github.event.inputs.deploymentStack }}"
+    #       echo "Is New Storage: ${{ github.event.inputs.isNewStorage }}"
+    #       echo "Storage Type: ${{ github.event.inputs.storageType }}"
+    #       echo "Private Endpoint: ${{ github.event.inputs.privateEndpoint }}"
+    #       echo "Storage Account Name: ${{ github.event.inputs.storageAccountName }}"
+    #       echo "Subscription ID: ${{ github.event.inputs.subscriptionId }}"
+    #       echo "Resource Group Name: ${{ github.event.inputs.resourceGroupName }}"
