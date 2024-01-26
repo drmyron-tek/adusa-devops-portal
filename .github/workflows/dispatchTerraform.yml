@@ -1,0 +1,19 @@
+name: Dispatch Workflow
+
+on:
+    workflow_dispatch:
+        inputs:
+            environment:
+                description: 'Environment'
+                required: true
+                default: 'dev'
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v2
+
+            # Add your deployment steps here

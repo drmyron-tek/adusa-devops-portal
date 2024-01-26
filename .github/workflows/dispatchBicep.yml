@@ -1,0 +1,214 @@
+name: dispatch bicep workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+        dispatchId:
+            description: "A unique ID provided when dispatching this workflow"
+            required: false
+            type: string
+            default: "123456789"
+        nonprod:
+            description: "Nonprod environment"
+            required: false
+            type: boolean
+            default: true
+        templateParams:
+            description: "Template folder path"
+            required: true
+            default: "./services/storage-accounts/*parameters.json"
+            type: string
+        subscriptionId:
+            description: "Subscription ID"
+            required: true
+            type: string
+            default: "b0b0b0b0-b0b0-b0b0-b0b0-b0b0b0b0b0b0"
+        resourceGroupName:
+            description: "Resource group name"
+            required: false
+            type: string
+            default: "adusa-devops-rg"
+        parameters:
+            description: "Parameters object as a JSON string"
+            required: true
+            type: string
+        ServicetName:
+            description: "name of service (storage-accounts, key-vaults, etc)"
+            required: true
+            type: string
+            default: "key-vault-service"
+        memberName:
+            description: 'Your email'
+            required: true
+            type: string
+            default: 'creig.smit@gmail.com'
+        serviceType:
+          description: "type of service to deploy (storage-accounts servuce, key-vault servuce, etc)"
+          required: true
+          type: string
+          default: "key-vault service"
+        networkConfig:
+          description: "network config"
+          required: true
+          type: string
+          default: '{"vnetName": {"value": "vnetName123"}, "subnetName": {"value": "subnetName123"}, "addressPrefix": {"value": "addressPrefix123"}, "subnetPrefix": {"value": "subnetPrefix123"}}'
+env:
+    newBranchName: 'deploy-${{ github.event.inputs.serviceType }}-${{ github.run_number }}'
+
+jobs:
+  # Process-ServiceNow-inputs:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - run: |
+  #             echo "Template route: ${{ inputs.templateParams }}"
+  #             echo "Target Subscription ID: ${{ inputs.subscriptionId }}"
+  #             echo "Target resource group Name: ${{ inputs.resourceGroupName }}"  
+  #     - name: Raw parameters string from ServiceNow input 
+  #       run: |
+  #           echo "Parameters string: ${{ inputs.parameters }}"
+  #           echo "Parameters string: ${{ inputs.parameters }}" >> "$GITHUB_OUTPUT"
+      
+  #     - name: Setup network config inputs
+  #       id: setup-network-inputs
+  #       run: |
+  #                 echo '${{ inputs.networkConfig }}' | jq -r 'to_entries[] | "\(.key)=\(.value.value)"' | xargs -I '{}' echo "{}" >> "$GITHUB_OUTPUT"
+            
+  #     - name: Process resource group inputs
+  #       run: 
+  #         # cat src/solutions/resourceGroup/deploy.parameters.json | jq --arg rgname ${{ inputs.resourceGroupName }} '.parameters.resourceGroupName.value = $rgname' | tee processedRG.parameters.json | jq -r '.parameters|to_entries|map("\(.key) = \(.value.value|tostring)")|.[]'
+      
+           
+  #     - name: Process resource group inputs
+  #       run: 
+  #         # cat src/solutions/resourceGroup/deploy.parameters.json | jq --arg rgname ${{ inputs.resourceGroupName }} '.parameters.resourceGroupName.value = $rgname' | tee processedRG.parameters.json | jq -r '.parameters|to_entries|map("\(.key) = \(.value.value|tostring)")|.[]'
+
+  Process-Repos-prepare-deployment:
+    runs-on: ubuntu-latest
+    steps:
+      
+      - name: Checkout DevOps portal repo
+        id: checkout_all_repos
+        uses: actions/checkout@v4
+        
+      - name: Checkout DevOps portal repo
+        uses: actions/checkout@v4
+        with:
+                repository: drmyron-tek/ADUSA-DevOps-portal.git
+                token: ${{ secrets.DevOps_portal_PAT }}
+                path: DevOps-portal
+                ref: main
+                fetch-depth: 0
+      
+      - name: Checkout storm-bicep repo
+        uses: actions/checkout@v4
+        with:
+                repository: RoyalAholdDelhaize/storm-bicep.git
+                token: ${{ secrets.DevOps_portal_PAT }}
+                path: storm-bicep
+                ref: main
+                fetch-depth: 0
+
+      - name: Checkout adusa-devops-deploys repo
+        uses: actions/checkout@v4
+        with:
+                repository: drmyron-tek/adusa-devops-deploys.git
+                token: ${{ secrets.DevOps_portal_PAT }}
+                path: adusa-devops-deploys
+                ref: main
+                fetch-depth: 0
+
+      - name: Setup git config
+        run: |
+            echo "Setting up git config"
+            # git config --global user.email "${{ github.event.inputs.memberName }}"
+            # git config --global user.name "${{ github.actor }}"
+            # git config --global --add core.verbose true
+            
+      - name: Generate new branch name
+        id: branch_name 
+        run: |
+            echo ${{ github.workspace }}
+            # git branch -a
+            # git checkout -b '${{ env.newBranchName }}'
+            # ls -a ${{ github.workspace }}/storm-bicep/services/
+
+      - name: Copy Bicep files to Deployment repository
+        id: copy_bicep_files
+        run: |
+            echo "Copying Bicep files to Deployment repository"
+            # mkdir -p  ${{ github.workspace }}/adusa-devops-deploys/services/storage-accounts 
+            # cp -f ${{ github.workspace }}/storm-bicep/services/storage-accounts/*.bicep ${{ github.workspace }}/adusa-devops-deploys/services/storage-accounts/ 
+            
+            # cp -f ${{ github.workspace }}/storm-bicep/services/storage-accounts/.test/*.json ${{ github.workspace }}/adusa-devops-deploys/services/storage-accounts/
+            # chmod 777 ${{ github.workspace }}/adusa-devops-deploys/services/storage-accounts/*
+            # ls -ltra ${{ github.workspace }}/adusa-devops-deploys/services/storage-accounts/
+      
+     
+  ServiceNow-approval-request-and-deployment:
+    runs-on: ubuntu-latest
+    environment: nonprod
+    steps:  
+      - name: Send Approval Request to ServiceNow
+        id: send_approval_request
+        run: |
+            echo "Approval Request sent to ServiceNow"
+
+
+      - name: if approved Deploy to Azure
+        run: |
+            echo "Approval Request sent to ServiceNow"
+        # if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        # uses: azure/login@v1
+        # with:
+        #       creds: ${{ env.AZURE_CREDENTIALS }}
+  
+  deployment:           
+    runs-on: ubuntu-latest
+    environment: nonprod
+    steps:
+      - name: Deploy to the resource group
+        id: deploy_to_resource_group
+        run:
+            echo "Deploying to the resource group"
+        # uses: azure/arm-deploy@v1
+        # with:
+        #   deploymentName: "ResourceGroup-${{ github.run_id }}-${{ github.run_attempt }}"
+        #   scope: "resourcegroup"
+        #   subscriptionId: ${{ inputs.subscriptionId }}
+        #   template: src/solutions/resourceGroup/deploy.bicep
+        #   parameters: "./processedRG.parameters.json"
+        #   failOnStdErr: true
+        #   region: "eastus"
+ 
+  Commit-and-push-files-to-DevOps-portal-repo:
+    runs-on: ubuntu-latest
+    steps:   
+      - name: add and commit files
+        id: add_and_commit
+        run: |
+            # git add ${{ github.workspace }}/adusa-devops-deploys/services/
+            # git commit -m "Deploying ${{ github.event.inputs.serviceType }} service to ${{ github.event.inputs.resourceGroupName }} resource group"
+    
+
+      - name: Generate tags and push files
+        run: |
+              # git push origin '${{ env.newBranchName }}'
+              # env:
+              #     GITHUB_TOKEN: ${{ secrets.DevOps_portal_PAT }}
+  
+  Generate-insights-close-ServiceNow-ticket:
+    runs-on: ubuntu-latest
+    steps:
+     - name: Get deployment insight
+       id: deployment_insight 
+       run:  |
+          echo "Deploying data file to Data Dog"
+
+     - name: Generate DataDog file
+       run:  |
+          echo "Deploying data file to Data Dog"  
+
+     - name: Send all deployment status to ServiceNow
+       run: |
+            echo "Deployment status sent to ServiceNow"
