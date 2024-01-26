@@ -1,4 +1,4 @@
-name: dispatch bicep deployment
+name: dispatch bicep workflow
 
 on:
   workflow_dispatch:
