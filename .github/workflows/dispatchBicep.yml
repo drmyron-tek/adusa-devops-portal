@@ -56,32 +56,32 @@ env:
     newBranchName: 'deploy-${{ github.event.inputs.serviceType }}-${{ github.run_number }}'
 
 jobs:
-  Process-ServiceNow-inputs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - run: |
-              echo "Template route: ${{ inputs.templateParams }}"
-              echo "Target Subscription ID: ${{ inputs.subscriptionId }}"
-              echo "Target resource group Name: ${{ inputs.resourceGroupName }}"  
-      - name: Raw parameters string from ServiceNow input 
-        run: |
-            echo "Parameters string: ${{ inputs.parameters }}"
-            echo "Parameters string: ${{ inputs.parameters }}" >> "$GITHUB_OUTPUT"
+  # Process-ServiceNow-inputs:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - run: |
+  #             echo "Template route: ${{ inputs.templateParams }}"
+  #             echo "Target Subscription ID: ${{ inputs.subscriptionId }}"
+  #             echo "Target resource group Name: ${{ inputs.resourceGroupName }}"  
+  #     - name: Raw parameters string from ServiceNow input 
+  #       run: |
+  #           echo "Parameters string: ${{ inputs.parameters }}"
+  #           echo "Parameters string: ${{ inputs.parameters }}" >> "$GITHUB_OUTPUT"
       
-      - name: Setup network config inputs
-        id: setup-network-inputs
-        run: |
-                  echo '${{ inputs.networkConfig }}' | jq -r 'to_entries[] | "\(.key)=\(.value.value)"' | xargs -I '{}' echo "{}" >> "$GITHUB_OUTPUT"
+  #     - name: Setup network config inputs
+  #       id: setup-network-inputs
+  #       run: |
+  #                 echo '${{ inputs.networkConfig }}' | jq -r 'to_entries[] | "\(.key)=\(.value.value)"' | xargs -I '{}' echo "{}" >> "$GITHUB_OUTPUT"
             
-      - name: Process resource group inputs
-        run: 
-          # cat src/solutions/resourceGroup/deploy.parameters.json | jq --arg rgname ${{ inputs.resourceGroupName }} '.parameters.resourceGroupName.value = $rgname' | tee processedRG.parameters.json | jq -r '.parameters|to_entries|map("\(.key) = \(.value.value|tostring)")|.[]'
+  #     - name: Process resource group inputs
+  #       run: 
+  #         # cat src/solutions/resourceGroup/deploy.parameters.json | jq --arg rgname ${{ inputs.resourceGroupName }} '.parameters.resourceGroupName.value = $rgname' | tee processedRG.parameters.json | jq -r '.parameters|to_entries|map("\(.key) = \(.value.value|tostring)")|.[]'
       
            
-      - name: Process resource group inputs
-        run: 
-          # cat src/solutions/resourceGroup/deploy.parameters.json | jq --arg rgname ${{ inputs.resourceGroupName }} '.parameters.resourceGroupName.value = $rgname' | tee processedRG.parameters.json | jq -r '.parameters|to_entries|map("\(.key) = \(.value.value|tostring)")|.[]'
+  #     - name: Process resource group inputs
+  #       run: 
+  #         # cat src/solutions/resourceGroup/deploy.parameters.json | jq --arg rgname ${{ inputs.resourceGroupName }} '.parameters.resourceGroupName.value = $rgname' | tee processedRG.parameters.json | jq -r '.parameters|to_entries|map("\(.key) = \(.value.value|tostring)")|.[]'
 
   Process-Repos-prepare-deployment:
     runs-on: ubuntu-latest
