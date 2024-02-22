@@ -23,10 +23,10 @@ on:
       reason:
         description: 'Reason for deployment'
         required: true
-      cloud_instance:
-        description: 'Cloud instance name'
-        required: true
-      group:
+      # cloud_instance:
+      #   description: 'Cloud instance name'
+      #   required: true
+      # group:
         description: 'ServiceNow group'
       # cost_center:
       #   description: 'Cost center for the deployment'
