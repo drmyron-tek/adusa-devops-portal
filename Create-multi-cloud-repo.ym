@@ -1,0 +1,105 @@
+name: Multi-Cloud Repository Setup and Versioning
+
+on:
+  workflow_dispatch:
+    inputs:
+      cloud_types:
+        description: 'Comma-separated list of cloud types (e.g., AWS, Azure, GCP, Oracle)'
+        required: true
+      environment_id:
+        description: 'Environment ID (must be one of: dev, qa, stg, prod, sandbox)'
+        required: true
+        oneOf: ["dev", "qa", "stg", "prod", "sandbox"]
+      product_id:
+        description: 'Product ID (e.g., my-product)'
+        required: true
+
+jobs:
+  setup_repositories:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create repositories and set up branch protection
+        env:
+          CLOUD_TYPES: ${{ github.event.inputs.cloud_types }}
+          ENVIRONMENT_ID: ${{ github.event.inputs.environment_id }}
+          PRODUCT_ID: ${{ github.event.inputs.product_id }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+       
+        run: |
+          IFS=',' read -ra CLOUD_ARRAY <<< "$CLOUD_TYPES"
+          for CLOUD_TYPE in "${CLOUD_ARRAY[@]}"; do
+            CLOUD_TYPE_CLEAN=$(echo "$CLOUD_TYPE" | xargs | tr '[:upper:]' '[:lower:]')
+            REPO_NAME="gts-terraform-$CLOUD_TYPE_CLEAN"
+
+            # Create the repository with a README
+            CREATE_OUTPUT=$(gh repo create "rti-international/$REPO_NAME" --private --add-readme 2>&1)
+            if [[ $? -ne 0 ]]; then
+              echo "::error::Failed to create repository $REPO_NAME: $CREATE_OUTPUT"
+              continue
+            fi
+
+            # Set the repository's custom properties for cloud type and product ID
+            gh repo edit "rti-international/$REPO_NAME" --custom-property"cloud:$CLOUD_TYPE_CLEAN" --custom-property "product:$PRODUCT_ID"
+
+            # Add a topic for the environment ID if it matches one of the predefined environments
+            case "$ENVIRONMENT_ID" in
+              dev|qa|stg|prod|sandbox)
+                gh repo edit "rti-international/$REPO_NAME" --custom-property "env:$ENVIRONMENT_ID"
+                ;;
+              *)
+                echo "::error::Invalid environment ID. Must be one of: dev, qa, stg, prod, sandbox."
+                exit 1
+                ;;
+            esac
+            
+
+            # Set branch protection rules for different strategies
+            gh api -X PUT repos/rti-international/$REPO_NAME/branches/nonprod/feature*/protection \
+              -f required_status_checks.strict=true \
+              -f required_status_checks.contexts='["ci/build", "ci/test"]' \
+              -f enforce_admins=false \
+              -f required_pull_request_reviews.dismiss_stale_reviews=true \
+              -f required_pull_request_reviews.require_code_owner_reviews=true \
+              -f required_pull_request_reviews.required_approving_review_count=1 \
+              -f restrictions=null
+
+            gh api -X PUT repos/rti-international/$REPO_NAME/branches/prod/feature*/protection \
+              -f required_status_checks.strict=true \
+              -f required_status_checks.contexts='["ci/deploy"]' \
+              -f enforce_admins=true \
+              -f required_pull_request_reviews.dismiss_stale_reviews=true \
+              -f required_pull_request_reviews.require_code_owner_reviews=false \
+              -f required_pull_request_reviews.required_approving_review_count=2 \
+              -f restrictions=null
+
+            gh api -X PUT repos/rti-international/$REPO_NAME/branches/devopsfeature*/protection \
+              -f required_status_checks.strict=true \
+              -f required_status_checks.contexts='["ci/release"]' \
+              -f enforce_admins=true \
+              -f required_pull_request_reviews.dismiss_stale_reviews=true \
+              -f required_pull_request_reviews.require_code_owner_reviews=false \
+              -f required_pull_request_reviews.required_approving_review_count=2 \
+              -f restrictions=null
+
+  # versioning_approved_prs:
+  #   needs: setup_repositories
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     # This is a placeholder for the steps needed to version each approved PR.
+  #     # You will need to define specific actions for your CI/CD pipeline,
+  #     # such as building, testing, tagging, and deploying your code.
+  #     # The following is a conceptual example:
+
+  #     - name: Versioning on PR merge to prod/*
+  #       if: github.ref == 'refs/heads/prod/*'
+  #       run: echo "Versioning for production branches"
+
+  #     - name: Versioning on PR merge to nonprod/*
+  #       if: github.ref == 'refs/heads/nonprod/*'
+  #       run: echo "Versioning for non-production branches"
+
+  #     - name: Release versioning on PR merge to devopsfeature/*
+  #       if: github.ref == 'refs/heads/devopsfeature/*'
+  #       run: |
+  #         echo "Release versioning for DevOps feature branches"
+  #         # Example: Increment version number, create a release, etc.
