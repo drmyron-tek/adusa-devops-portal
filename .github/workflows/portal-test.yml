@@ -147,6 +147,20 @@ jobs:
           TF_VAR_network_id: ${{ github.event.inputs.network_id }}
           # Add additional required TF_VAR_* environment variables here
 
+      - name: Download Artifact
+          uses: badgerhobbs/terraform-state@v1
+          with:
+              operation: download
+              location: artifact
+              github_token: ${{ secrets.gh_access_token }}
+          continue-on-error: true
+      
+      - name: Upload Artifact
+          uses: badgerhobbs/terraform-state@v1
+          with:
+              operation: upload
+              location: artifact
+              github_token: ${{ secrets.gh_access_token }}
   update_servicenow:
     needs: apply_terraform
     runs-on: ubuntu-latest
