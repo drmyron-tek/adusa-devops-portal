@@ -16,10 +16,10 @@ on:
         description: "Name of service (e.g., storage-accounts, key-vaults)"
         required: true
         type: string
-      memberName:
-        description: "Username for PR review"
-        required: true
-        type: string
+      # memberName:
+      #   description: "Username for PR review"
+      #   required: true
+      #   type: string
       reason:
         description: 'Reason for deployment'
         required: true
@@ -28,12 +28,12 @@ on:
         required: true
       group:
         description: 'ServiceNow group'
-      cost_center:
-        description: 'Cost center for the deployment'
+      # cost_center:
+      #   description: 'Cost center for the deployment'
       network_id:
         description: 'Network identifier'
-      vault:
-        description: 'Vault name or identifier'
+      # vault:
+      #   description: 'Vault name or identifier'
       product_id:
         description: 'Product identifier'
         required: true
