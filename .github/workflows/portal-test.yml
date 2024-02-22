@@ -1,141 +1,166 @@
-name: Test Storage Service
+name: Multi-Cloud Terraform Deployment
 
 on:
   workflow_dispatch:
     inputs:
-        dispatchId:
-            description: "A unique ID provided when dispatching this workflow"
-            required: false
-            type: string
-        templateRoute:
-            description: "Template folder path"
-            required: true
-            default: "./services/storage-accounts/*parameters.json"
-            type: string
-        subscriptionId:
-            description: "Subscription ID"
-            required: true
-            type: string
-        resourceGroupName:
-            description: "Resource group name"
-            required: false
-            type: string
-        parameters:
-            description: "Parameters object as a JSON string"
-            required: true
-            type: string
-        branchName:
-            description: 'Branch name to use as the base for the deployment'
-            required: true
-            type: string
-            default: 'main'
-        # description:
-        #     description: 'What type of service are you deploying?'
-        #     required: true
-        #     type: string
-        memberName:
-            description: 'Your email'
-            required: true
-            type: string
-        serviceType:
-            description: 'Select the service type'
-            required: true
-            type: choice
-            options:
-            - storage_only
-            - storage-private-EP
-            - storage-EP-KV
-        storageContainerType:
-            description: 'Storage container type'
-            required: true
-            type: choice
-            options:
-            - file
-            - queue
-            - table
-            - blob
+      cloudProvider:
+        description: "Cloud provider (aws, azure, gcp, oracle)"
+        required: true
+        type: string
+      varsTemplateParams:
+        description: "vars.tf template folder path"
+        required: true
+        type: string
+        default: "./cloud/modules/cloud/vars.tf"
+      serviceName:
+        description: "Name of service (e.g., storage-accounts, key-vaults)"
+        required: true
+        type: string
+      memberName:
+        description: "Username for PR review"
+        required: true
+        type: string
+      reason:
+        description: 'Reason for deployment'
+        required: true
+      cloud_instance:
+        description: 'Cloud instance name'
+        required: true
+      group:
+        description: 'ServiceNow group'
+      cost_center:
+        description: 'Cost center for the deployment'
+      network_id:
+        description: 'Network identifier'
+      vault:
+        description: 'Vault name or identifier'
+      product_id:
+        description: 'Product identifier'
+        required: true
+      environment:
+        description: 'Target environment (dev, qa, stg, prod)'
+        required: true
+
+env:
+  TF_VAR_cloud_provider: ${{ github.event.inputs.cloudProvider }}
+  TF_VAR_environment: ${{ github.event.inputs.environment }}
+  newBranchName: 'deploy-${{ github.event.inputs.cloudProvider }}-${{ github.event.inputs.serviceName }}-${{ github.run_id }}'
+  TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-  prepare-deployment:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      repo_name: ${{ steps.set_repo_name.outputs.repo_name }}
+    steps:
+      - name: Set Repo Name
+        id: set_repo_name
+        run: |
+          echo "repo_name=tf_${{ github.event.inputs.cloudProvider }}_portal" >> $GITHUB_ENV
+
+  # Additional jobs for repository creation and Terraform setup would go here
+
+  prepare_and_plan:
+    needs: setup
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout adusa-devops-deploys repo
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
         with:
-                repository: drmyron-tek/adusa-devops-deploys.git
-                token: ${{ secrets.DevOps_portal_PAT }}
-                ref: ${{ github.event.inputs.branchName }}
-                fetch-depth: 0
+          repository: ${{ needs.setup.outputs.repo_name }}
+          ref: main
 
-      - name: Generate new branch name
-        id: branch_name 
-        run: 
-            echo "newBranchName=deploy-${{ github.event.inputs.serviceType }}-${{ github.run_number }}" >> $GITHUB_ENV
-            cd ./services/storage-accounts/
-            git config --global user.email "${{ github.event.inputs.memberName }}"
-            git config --global user.name "${{ github.actor }}"
-            git config --global --add core.verbose true
-            git checkout -b "${{ env.newBranchName }}"
-            git push origin "${{ env.newBranchName }}"
+      - name: Create branch for Terraform plan
+        run: |
+          git checkout -b ${{ env.newBranchName }}
+          git push origin ${{ env.newBranchName }}
 
-  copy-files-and-deploy:
-            needs: prepare-deployment
-            runs-on: ubuntu-latest
-            steps:
-            - name: Copy Bicep files from external repository
-              run: |
-                    mkdir -p ./services/storage-accounts/
-                    curl -H "Authorization: token ${{ secrets.DevOps_portal_PAT }}" \
-                        -L "https://github.com/RoyalAholdDelhaize/storm-bicep/blob/main/services/storage-accounts/*.bicep" \
-                        -o "services/storage-accounts/storage.bicep"
-                        
-                        cat services/storage-accounts/storage.bicep
-            
-            - name: Copy parameters.json from external repository
-              run: |
-                    
-                    curl -H "Authorization: token ${{ secrets.DevOps_portal_PAT }}" \
-                        -L "https://github.com/RoyalAholdDelhaize/storm-bicep/blob/main/services/storage-accounts/.test/parameters.json" \
-                        -o "services/storage-accounts/parameters.json"
-                     
-                     cat services/storage-accounts/parameters.json
-                     chmod 777 services/storage-accounts/*
-                     ls -la services/storage-accounts/
-            - name: Checkin files
-              run: |
-                        echo "newBranchName=deploy-${{ github.event.inputs.serviceType }}-${{ github.run_number }}" >> $GITHUB_ENV
-                        cd ./services/storage-accounts/
-                        ls -ltra
-                        git status
-                        echo "${{ env.newBranchName }}"
-                        git config --global user.email "${{ github.event.inputs.memberName }}"
-                        git config --global user.name "${{ github.actor }}"
-                        git config --global --add core.verbose true
-                        git add .
-                        git commit -m "Add files via upload"
-                        git push origin "${{ env.newBranchName }}"
+      - name: Update vars.tf File
+        run: |
+          VARS_PATH="${{ github.event.inputs.varsTemplateParams }}"
+          ENVIRONMENT="${{ github.event.inputs.environment }}"
+          CLOUD_INSTANCE="${{ github.event.inputs.cloud_instance }}"
+          NETWORK_ID="${{ github.event.inputs.network_id }}"
 
-                        
-#   dispatch-id:
-#             if: inputs.dispatchId != ''
-#             runs-on: ubuntu-latest
-#             steps:
-#               - id: dispatch-id
-#                 name: ${{ inputs.dispatchId }}
-#                 run: echo "The dispatch ID is ${{ inputs.dispatchId }}"  
+          # Update vars.tf with input variables or secrets
+          sed -i 's/\${cloud_instance}/'"$CLOUD_INSTANCE"'/g' vars.tf
+          sed -i 's/\${network_id}/'"$NETWORK_ID"'/g' vars.tf
+          sed -i "s/variable \"environment\" { default = \".*\" }/variable \"environment\" { default = \"$ENVIRONMENT\" }/" "$VARS_PATH"
 
-#   deploy:
-#     runs-on: ubuntu-latest
-#     # environment: development
-#     steps:
-#             - uses: actions/checkout@v3
-#             - run: |
-#                 echo "Template route: ${{ inputs.templateRoute }}"
-#                 echo "Target Subscription ID: ${{ inputs.subscriptionId }}"
-#                 echo "Target resource group Name: ${{ inputs.resourceGroupName }}"
-#             - name: Raw parameters string
-#               run: |
-#                 echo "Parameters string: ${{ inputs.parameters }}"
-#             - name: Process deployment inputs
-#               run: cat ${{ inputs.templateRoute }}/parameters.json | jq '.parameters = ${{ inputs.parameters }}' | tee processed.parameters.json | jq -r '.parameters|to_entries|map("\(.key) = \(.value.value|tostring)")|.[]'
-#               id: process-deployment-inputs                
+      
+  create_pr:
+    needs: prepare_and_plan
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.environment != 'prod' }} # Only for non-prod environments
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ env.newBranchName }}
+
+      - name: Open Pull Request
+        id: create_pull_request
+        uses: ./.github/actions/create-pull-request
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_title: "Deploy ${{ github.event.inputs.serviceName }} to ${{ github.event.inputs.environment }}"
+          pr_body: |
+            **Deployment Details**:
+            - **Product ID**: ${{ github.event.inputs.product_id }}
+            - **Target Environment**: ${{ github.event.inputs.environment }}
+            - **Cloud Instance Name**: ${{ github.event.inputs.cloud_instance }}
+            - **Group**: ${{ github.event.inputs.group }}
+            - **Reason for Deployment**: ${{ github.event.inputs.reason }}
+            - **Cost Center**: ${{ github.event.inputs.cost_center }}
+            - **Network ID**: ${{ github.event.inputs.network_id }}
+            - **Vault**: ${{ github.event.inputs.vault }}
+            <!-- Terraform Plan Output will be inserted here by additional steps if necessary -->
+          team_reviewers: "TeamA"
+          head_branch: ${{ env.newBranchName }}
+          base_branch: "main"
+        
+
+  # Additional add serive now ticket, send notification to teams, and apply Terraform would go here
+# ... (previous content)
+
+  apply_terraform:
+    needs: create_pr
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.environment != 'prod' }} # Only for non-prod environments
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ env.newBranchName }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        env:
+          TF_VAR_cloud_instance: ${{ github.event.inputs.cloud_instance }}
+          TF_VAR_network_id: ${{ github.event.inputs.network_id }}
+          # Add additional required TF_VAR_* environment variables here
+
+  update_servicenow:
+    needs: apply_terraform
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify ServiceNow on Deployment Success
+        uses: ./.github/actions/update-servicenow # This is the path to your custom action
+        with:
+          instance: 'your_instance'
+          username: ${{ secrets.SERVICENOW_USERNAME }}
+          password: ${{ secrets.SERVICENOW_PASSWORD }}
+          appSysID: 'your_app_sys_id'
+          updateSetSysID: 'your_update_set_sys_id'
+          
+          # Add other parameters as per ServiceNow Action documentation
+
+  # ... (any additional steps or jobs)
+
